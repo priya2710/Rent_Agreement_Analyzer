@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import "./FileUpload.css"; // For styling
+import "./FileUpload.css"; // Import styles
 
 const FileUpload = () => {
     const [file, setFile] = useState(null);
@@ -26,18 +26,24 @@ const FileUpload = () => {
         formData.append("file", file);
 
         try {
-            setLoading(true); // Show loading
+            setLoading(true); // Show loading indicator
             const res = await axios.post("http://127.0.0.1:8000/upload/", formData, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
+
+            // Check if the response has valid data
+            if (!res.data || !Array.isArray(res.data.contradictions)) {
+                throw new Error("We don't support this type of file. Try uploading different file.");
+            }
+
             setResponse(res.data);
             setError(null);
         } catch (err) {
-            setError("Error uploading file. Please try again.");
+            setError(err.message || "Error uploading file. Please try again.");
             setShowAlert(true);
             console.error(err);
         } finally {
-            setLoading(false); // Hide loading
+            setLoading(false); // Hide loading indicator
         }
     };
 
@@ -52,8 +58,12 @@ const FileUpload = () => {
             <h2>Upload Rent Agreement</h2>
 
             {/* File Input */}
-            <input type="file" onChange={handleFileChange} accept="application/pdf" />
-
+            <input
+                type="file"
+                onChange={handleFileChange}
+                accept=".pdf, .docx, .txt"
+            />
+            
             {/* Upload Button */}
             <button onClick={handleUpload}>Upload</button>
 
@@ -74,9 +84,9 @@ const FileUpload = () => {
             )}
 
             {/* Response Section */}
-            {response && (
+            {response && response.contradictions && response.contradictions.length > 0 ? (
                 <div className="response-container">
-                    <h3>Conflicting Clauses </h3>
+                    <h3>Contradicting Clauses: </h3>
                     <table>
                         <thead>
                             <tr>
@@ -90,15 +100,15 @@ const FileUpload = () => {
                             {response.contradictions.map((contradiction, index) => (
                                 <tr key={index}>
                                     <td>{index + 1}</td>
-                                    <td>{contradiction["Clause 1"]}</td>
-                                    <td>{contradiction["Clause 2"]}</td>
+                                    <td>{contradiction["Clause 1"] || "N/A"}</td>
+                                    <td>{contradiction["Clause 2"] || "N/A"}</td>
                                     <td>
                                         <div className="progress-bar">
                                             <div
                                                 className="progress-fill"
-                                                style={{ width: `${contradiction.Confidence * 100}%` }}
+                                                style={{ width: `${(contradiction.Confidence || 0) * 100}%` }}
                                             ></div>
-                                            <span>{(contradiction.Confidence * 100).toFixed(2)}%</span>
+                                            <span>{((contradiction.Confidence || 0) * 100).toFixed(2)}%</span>
                                         </div>
                                     </td>
                                 </tr>
@@ -106,6 +116,8 @@ const FileUpload = () => {
                         </tbody>
                     </table>
                 </div>
+            ) : response && (
+                <p>No contradictions found in the document.</p>
             )}
         </div>
     );
